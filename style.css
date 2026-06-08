@@ -222,29 +222,31 @@ body.dark .choice-btn.wrong   { background:#3a1a1a; }
 
 .canvas-wrap {
   position:relative;
-  width:min(340px, calc(100vw - 28px));
-  height:min(340px, calc(100vw - 28px));
+  width: min(300px, calc(100vw - 28px));   /* JS overrides for words/sentences */
+  height: 300px;
   border-radius:var(--r);
   border:2px solid var(--border);
   background:var(--surface);
   box-shadow:0 4px 16px var(--shadow);
   overflow:hidden;
+  transition: width .15s, height .15s;
 }
 .guide-overlay {
   position:absolute; inset:0;
   display:flex; align-items:center; justify-content:center;
-  font-size:220px; font-weight:900;
-  color:rgba(37,99,235,0.08);
+  font-size:200px; font-weight:900;        /* JS overrides per item */
+  color:rgba(37,99,235,0.11);              /* slightly more visible */
   pointer-events:none; user-select:none;
-  font-family:'Arial Black','Helvetica Neue',sans-serif;
-  transition:opacity .3s;
+  font-family:'Arial Black','Arial','Helvetica Neue',sans-serif;
+  transition:opacity .3s, font-size .1s;
   line-height:1;
   overflow:hidden;
-  padding:8px;
-  word-break:break-all;
+  padding:8px 12px;
+  word-break:break-word;
   text-align:center;
+  white-space:pre-wrap;
 }
-body.dark .guide-overlay { color:rgba(147,197,253,0.12); }
+body.dark .guide-overlay { color:rgba(147,197,253,0.15); }
 .write-canvas {
   position:absolute; inset:0;
   width:100%; height:100%;
