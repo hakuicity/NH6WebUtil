@@ -91,7 +91,7 @@ function buildUnitScreen() {
   // Vocab link
   const vu = NH6_UNITS[S.unit-1];
   const cats = vu.vocabCats.split(',')[0]; // first category for deep link
-  $('unit-vocab-link').href = `https://hakuicity.github.io/NHApp/?cat=${cats}`;
+  $('unit-vocab-link').href = `https://hakuicity.github.io/TangoApp/?cat=${cats}`;
 }
 
 $('back-to-menu').onclick = () => showScreen('screen-menu');
