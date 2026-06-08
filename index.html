@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1565C0">
+  <title>NH6 練習</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ══ MENU ══════════════════════════════════════════════════════════════ -->
+<div id="screen-menu" class="screen active">
+  <header class="app-header">
+    <div class="header-left">
+      <span class="app-icon">📗</span>
+      <div>
+        <div class="app-title">NH6 練習</div>
+        <div class="app-sub">New Horizons Elementary 6</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button id="theme-btn" class="icon-btn">🌙</button>
+      <button id="auth-btn"  class="auth-btn">ログイン</button>
+    </div>
+  </header>
+
+  <main class="menu-body">
+    <p class="menu-intro">ユニットを選んで練習しよう！</p>
+    <div class="unit-grid" id="unit-grid"></div>
+
+    <section id="menu-stats" style="display:none; margin-top:20px">
+      <p class="section-label">あなたの成績</p>
+      <div class="stats-row" id="stats-row"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ══ UNIT ══════════════════════════════════════════════════════════════ -->
+<div id="screen-unit" class="screen">
+  <div id="unit-header" class="unit-header">
+    <button id="back-to-menu" class="back-btn-white">← もどる</button>
+    <div class="unit-header-inner">
+      <div id="unit-emoji" class="unit-header-emoji">👋</div>
+      <div>
+        <div id="unit-num"   class="unit-header-num">Unit 1</div>
+        <div id="unit-title" class="unit-header-title">This is me!</div>
+        <div id="unit-ja"    class="unit-header-ja"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mode-list">
+    <button class="mode-card" id="mode-grammar">
+      <span class="mode-icon">📝</span>
+      <div>
+        <div class="mode-title">文法練習</div>
+        <div class="mode-desc">文を完成させよう</div>
+      </div>
+      <span class="mode-count" id="unit-grammar-count"></span>
+    </button>
+
+    <button class="mode-card" id="mode-response">
+      <span class="mode-icon">💬</span>
+      <div>
+        <div class="mode-title">応答練習</div>
+        <div class="mode-desc">質問に正しく答えよう</div>
+      </div>
+      <span class="mode-count" id="unit-response-count"></span>
+    </button>
+
+    <button class="mode-card" id="mode-writing">
+      <span class="mode-icon">✏️</span>
+      <div>
+        <div class="mode-title">書き練習</div>
+        <div class="mode-desc">文字・単語・文を書こう</div>
+      </div>
+      <span class="mode-count" id="unit-writing-count"></span>
+    </button>
+
+    <a class="mode-card mode-card--vocab" id="unit-vocab-link"
+       href="https://hakuicity.github.io/NHApp/" target="_blank" rel="noopener">
+      <span class="mode-icon">📖</span>
+      <div>
+        <div class="mode-title">単語練習</div>
+        <div class="mode-desc">NH 絵辞典アプリへ</div>
+      </div>
+      <span class="mode-count">→</span>
+    </a>
+  </div>
+</div>
+
+<!-- ══ QUIZ ══════════════════════════════════════════════════════════════ -->
+<div id="screen-quiz" class="screen">
+  <header class="quiz-header">
+    <button class="icon-btn" id="quiz-back">✕</button>
+    <div class="quiz-progress">
+      <div class="progress-bar"><div class="progress-fill" id="quiz-progress-fill"></div></div>
+      <span class="progress-text" id="quiz-progress-text">1 / 10</span>
+    </div>
+    <div class="quiz-score" id="quiz-score-disp">⭐ 0</div>
+  </header>
+
+  <div class="quiz-body">
+    <div class="question-card" id="question-card">
+      <div class="question-label" id="question-label">文を完成させよう</div>
+      <div class="question-prompt" id="question-prompt"></div>
+      <div class="question-hint"   id="question-hint"></div>
+    </div>
+
+    <div class="choices-grid" id="choices-grid"></div>
+
+    <div class="result-overlay hidden" id="result-overlay">
+      <div class="result-icon" id="result-icon"></div>
+      <div class="result-msg"  id="result-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WRITING ════════════════════════════════════════════════════════════ -->
+<div id="screen-writing" class="screen">
+  <header class="quiz-header">
+    <button class="icon-btn" id="write-back">✕</button>
+    <div class="quiz-progress">
+      <div class="progress-bar"><div class="progress-fill" id="write-progress-fill"></div></div>
+      <span class="progress-text" id="write-progress-text">1 / 8</span>
+    </div>
+    <button class="mode-toggle-btn" id="write-mode-btn">🙈 コピーモード</button>
+  </header>
+
+  <div class="writing-body">
+    <div class="write-instruction" id="write-instruction"></div>
+    <div class="write-tabs" id="write-tabs"></div>
+
+    <div class="canvas-wrap">
+      <div class="guide-overlay" id="guide-overlay"></div>
+      <canvas id="write-canvas" class="write-canvas"></canvas>
+    </div>
+
+    <div class="write-controls">
+      <button class="write-btn" id="write-undo-btn">↩ 戻す</button>
+      <button class="write-btn write-btn--clear" id="write-clear-btn">🗑 消す</button>
+      <button class="write-btn" id="write-prev-btn" disabled>← まえ</button>
+      <button class="write-btn write-btn--next" id="write-next-btn">つぎ →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESULTS ════════════════════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <div class="results-body">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <h1 class="results-title">結果</h1>
+    <div class="results-score" id="results-score"></div>
+    <div class="results-bar-wrap">
+      <div class="results-bar" id="results-bar"></div>
+    </div>
+    <div class="results-msg"  id="results-msg"></div>
+    <div class="results-sync" id="results-sync"></div>
+    <div class="results-btns">
+      <button class="result-btn result-btn--primary" id="results-retry">もう一度</button>
+      <button class="result-btn" id="results-unit">ユニットへ</button>
+      <button class="result-btn" id="results-menu">メニューへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ AUTH MODAL ═════════════════════════════════════════════════════════ -->
+<div id="auth-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <button class="modal-close" id="modal-close">×</button>
+    <h2 class="modal-title" id="modal-title">ログイン</h2>
+    <p  class="modal-sub"   id="modal-sub">成績をクラウドに保存します</p>
+    <div class="modal-err hidden" id="modal-err"></div>
+    <div class="modal-ok  hidden" id="modal-ok"></div>
+
+    <div class="modal-tabs" id="modal-tabs">
+      <button class="modal-tab active" data-tab="email">📧 メール</button>
+      <button class="modal-tab"        data-tab="sid">🎓 学籍番号</button>
+    </div>
+
+    <div id="modal-email-form">
+      <div class="modal-field">
+        <label>メールアドレス</label>
+        <input type="email" id="m-email" placeholder="example@school.ed.jp">
+      </div>
+      <div class="modal-field">
+        <label>パスワード</label>
+        <input type="password" id="m-pass" placeholder="••••••••">
+      </div>
+    </div>
+
+    <div id="modal-sid-form" style="display:none">
+      <div class="modal-field">
+        <label>学籍番号</label>
+        <input type="text" id="m-sid" placeholder="例：S001">
+      </div>
+      <div class="modal-field">
+        <label>パスワード</label>
+        <input type="password" id="m-sidpass" placeholder="••••••••">
+      </div>
+    </div>
+
+    <div id="modal-loggedin" style="display:none">
+      <div class="modal-user-info">
+        <div class="modal-user-name"  id="modal-user-name"></div>
+        <div class="modal-user-email" id="modal-user-email"></div>
+      </div>
+      <a href="https://hakuicity.github.io/site/account/"
+         target="_blank" class="modal-dashboard-link">📊 ダッシュボードを見る →</a>
+    </div>
+
+    <button class="modal-submit" id="modal-submit">ログイン</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="supabase-client.js"></script>
+<script src="writing.js"></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(r => console.log('[NH6] SW:', r.scope))
+      .catch(e => console.warn('[NH6] SW fail:', e));
+  }
+</script>
+</body>
+</html>

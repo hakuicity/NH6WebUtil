@@ -1,0 +1,17 @@
+{
+  "name": "NH6 練習 — New Horizons Elementary 6",
+  "short_name": "NH6",
+  "description": "New Horizons 6th grade English practice app",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#1565C0",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["education"],
+  "lang": "ja",
+  "scope": "./"
+}
