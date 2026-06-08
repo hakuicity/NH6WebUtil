@@ -6,20 +6,20 @@ class WritingCanvas {
   constructor(canvasEl) {
     this.canvas = canvasEl;
     this.ctx    = canvasEl.getContext('2d');
-    this.strokes = [];          // completed strokes
-    this.current = null;        // current stroke being drawn
+    this.strokes = [];
+    this.current = null;
     this.isDrawing = false;
-    this.color  = '#1565C0';
-    this.lineWidth = document.documentElement.clientWidth < 600 ? 5 : 4;
+    this.color     = '#1565C0';
+    this.lineWidth = document.documentElement.clientWidth < 600 ? 7 : 6;
     this._setupEvents();
     this._resize();
   }
 
   _resize() {
-    const rect = this.canvas.parentElement.getBoundingClientRect();
-    const size = Math.min(rect.width, rect.height, 360);
-    this.canvas.width  = size;
-    this.canvas.height = size;
+    const wrap = this.canvas.parentElement;
+    const rect = wrap.getBoundingClientRect();
+    this.canvas.width  = Math.round(rect.width  || 300);
+    this.canvas.height = Math.round(rect.height || 300);
     this.redraw();
   }
 
@@ -98,19 +98,34 @@ class WritingCanvas {
 
   _drawRulings() {
     const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-    ctx.strokeStyle = 'rgba(37,99,235,0.12)';
-    ctx.lineWidth   = 1;
-    // Baseline at 75% height
-    const base = h * 0.75;
-    ctx.beginPath(); ctx.moveTo(8, base); ctx.lineTo(w-8, base); ctx.stroke();
-    // Midline at 35%
-    const mid = h * 0.35;
-    ctx.strokeStyle = 'rgba(37,99,235,0.07)';
-    ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.moveTo(8, mid); ctx.lineTo(w-8, mid); ctx.stroke();
+    const w   = this.canvas.width;
+    const h   = this.canvas.height;
+    const pad = 10;
+
+    // 4-line handwriting guide (consistent regardless of canvas size)
+    //  Line 1 — cap/ascender:  20% from top  (light solid)
+    //  Line 2 — midline/waist: 50% from top  (dotted — marks x-height)
+    //  Line 3 — baseline:      76% from top  (stronger solid — where letters sit)
+    //  Line 4 — descender:     92% from top  (light solid)
+    const lines = [
+      { y: 0.20, color: 'rgba(37,99,235,0.13)', width: 1,   dash: []      },
+      { y: 0.50, color: 'rgba(37,99,235,0.22)', width: 1.5, dash: [5, 4]  },
+      { y: 0.76, color: 'rgba(37,99,235,0.30)', width: 1.5, dash: []      },
+      { y: 0.92, color: 'rgba(37,99,235,0.13)', width: 1,   dash: []      },
+    ];
+
+    lines.forEach(({ y, color, width, dash }) => {
+      const yPx = Math.round(h * y) + 0.5; // +0.5 for crisp 1px lines
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = width;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      ctx.moveTo(pad, yPx);
+      ctx.lineTo(w - pad, yPx);
+      ctx.stroke();
+    });
     ctx.setLineDash([]);
+    ctx.lineWidth = 1;
   }
 
   _drawStroke(points) {
