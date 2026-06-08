@@ -286,12 +286,64 @@ function renderWriteItem() {
     };
   });
 
-  // Adjust guide font size based on content length
-  const text = overlay.textContent;
-  if (text.length <= 1) overlay.style.fontSize = '220px';
-  else if (text.length <= 4) overlay.style.fontSize = '140px';
-  else if (text.length <= 8) overlay.style.fontSize = '80px';
-  else overlay.style.fontSize = '42px';
+  // Size canvas-wrap and guide font to fit content
+  sizeWritingCanvas(item.type, overlay.textContent);
+}
+
+function sizeWritingCanvas(type, guideText) {
+  const wrap  = document.querySelector('.canvas-wrap');
+  const maxW  = Math.min(window.innerWidth - 28, 560);
+  const len   = guideText.length;
+
+  // Determine dimensions
+  let wPx, hPx;
+  if (type === 'letter') {
+    // Square: big single character
+    const sq = Math.min(maxW, 300);
+    wPx = sq; hPx = sq;
+  } else if (type === 'digraph') {
+    wPx = Math.min(maxW, 320); hPx = 220;
+  } else if (type === 'word') {
+    if (len <= 5)      { wPx = Math.min(maxW, 340); hPx = 230; }
+    else if (len <= 9) { wPx = maxW;                hPx = 210; }
+    else               { wPx = maxW;                hPx = 190; }
+  } else {
+    // sentence — wide, shorter height
+    wPx = maxW; hPx = 170;
+  }
+
+  wrap.style.width  = wPx + 'px';
+  wrap.style.height = hPx + 'px';
+
+  // Derive font size that fits comfortably in wPx
+  // Uses a simple chars-to-size table scaled to actual canvas width
+  const scale = wPx / 300; // normalise against 300px reference
+  let base;
+  if      (len <= 1)  base = 210;
+  else if (len <= 2)  base = 155;
+  else if (len <= 4)  base = 108;
+  else if (len <= 6)  base = 80;
+  else if (len <= 9)  base = 60;
+  else if (len <= 14) base = 44;
+  else if (len <= 20) base = 34;
+  else if (len <= 28) base = 27;
+  else                base = 22;
+
+  const fs = Math.round(base * scale);
+  const overlay = document.getElementById('guide-overlay');
+  overlay.style.fontSize = fs + 'px';
+  // line-height fix so multi-word text sits nicely
+  overlay.style.lineHeight = (type === 'sentence') ? '1.15' : '1';
+
+  // Tell canvas to re-measure itself after the DOM has updated
+  if (S.wcanvas) {
+    requestAnimationFrame(() => {
+      if (S.wcanvas) {
+        S.wcanvas._resize();
+        S.wcanvas.clear();
+      }
+    });
+  }
 }
 
 // ── Results ────────────────────────────────────────────────────────────────
