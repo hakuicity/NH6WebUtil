@@ -226,8 +226,11 @@ function startWriting() {
 function toggleWriteMode() {
   S.writeMode = S.writeMode === 'trace' ? 'copy' : 'trace';
   $('write-mode-btn').textContent = S.writeMode === 'trace' ? '🙈 コピーモード' : '👀 なぞりモード';
-  $('guide-overlay').style.opacity = S.writeMode === 'trace' ? '1' : '0';
-  if (S.wcanvas) S.wcanvas.clear();
+  // Guide is drawn on canvas — just set/clear the text
+  var overlay = $('guide-overlay');
+  if (S.wcanvas) {
+    S.wcanvas.setGuide(S.writeMode === 'trace' ? overlay.textContent : '');
+  }
 }
 
 function renderWriteItem() {
@@ -242,7 +245,8 @@ function renderWriteItem() {
   $('write-mode-btn').textContent = S.writeMode === 'trace' ? '🙈 コピーモード' : '👀 なぞりモード';
 
   const overlay = $('guide-overlay');
-  overlay.style.opacity = S.writeMode === 'trace' ? '1' : '0';
+  // Opacity managed by canvas now — keep overlay hidden, canvas draws guide
+  overlay.style.opacity = '0';
 
   if (item.type === 'letter') {
     overlay.textContent = S.writeMode === 'trace' ? item.upper : '';
@@ -281,57 +285,35 @@ function renderWriteItem() {
     tab.onclick = () => {
       document.querySelectorAll('.wtab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      overlay.textContent = S.writeMode === 'trace' ? tab.dataset.char : '';
-      if (S.wcanvas) S.wcanvas.clear();
+      var charText = tab.dataset.char;
+      overlay.textContent = charText;
+      if (S.wcanvas) S.wcanvas.setGuide(S.writeMode === 'trace' ? charText : '');
     };
   });
 
   // Size canvas-wrap and guide font to fit content
-  sizeWritingCanvas(item.type, overlay.textContent);
+  // Pass guide text directly to canvas — it measures and draws itself
+  var guideText = overlay.textContent; // still set above for tab switches
+  sizeWritingCanvas(item.type);
+  requestAnimationFrame(function() {
+    if (S.wcanvas) S.wcanvas.setGuide(S.writeMode === 'trace' ? guideText : '');
+  });
 }
 
-function sizeWritingCanvas(type, guideText) {
-  const wrap = document.querySelector('.canvas-wrap');
-  const maxW = Math.min(window.innerWidth - 28, 560);
-
-  // Canvas dimensions by content type
-  let wPx, hPx;
-  if (type === 'letter') {
-    const sq = Math.min(maxW, 300); wPx = sq; hPx = sq;
-  } else if (type === 'digraph') {
-    wPx = maxW; hPx = 220;
-  } else if (type === 'word') {
-    wPx = maxW; hPx = 210;
-  } else {
-    // sentence
-    wPx = maxW; hPx = 175;
-  }
-
+function sizeWritingCanvas(type) {
+  var wrap = document.querySelector('.canvas-wrap');
+  var maxW = Math.min(window.innerWidth - 28, 560);
+  var wPx, hPx;
+  if      (type === 'letter')   { var sq = Math.min(maxW, 300); wPx = sq;   hPx = sq; }
+  else if (type === 'digraph')  { wPx = maxW; hPx = 220; }
+  else if (type === 'word')     { wPx = maxW; hPx = 210; }
+  else                          { wPx = maxW; hPx = 175; }  // sentence
   wrap.style.width  = wPx + 'px';
   wrap.style.height = hPx + 'px';
-
-  // Measure actual text width to find font size that truly fits
-  const pad = 28;                         // horizontal breathing room
-  const maxTextH = hPx * 0.62;           // text shouldn't fill more than 62% of height
-  const maxTextW = wPx - pad;
-
-  // Use an offscreen canvas to get accurate font metrics
-  var measurer = document.createElement('canvas').getContext('2d');
-  var fontSize = Math.min(Math.floor(maxTextH), 200);
-  while (fontSize > 14) {
-    measurer.font = '900 ' + fontSize + 'px \'Arial Black\', Arial, sans-serif';
-    if (measurer.measureText(guideText).width <= maxTextW) break;
-    fontSize -= 2;
-  }
-
-  var overlay = document.getElementById('guide-overlay');
-  overlay.style.fontSize   = fontSize + 'px';
-  overlay.style.lineHeight = (type === 'sentence') ? '1.25' : '1';
-
-  // Re-sync canvas pixel dimensions after the wrap has resized
+  // Canvas resize + guide redraw happen after DOM update
   if (S.wcanvas) {
     requestAnimationFrame(function() {
-      if (S.wcanvas) { S.wcanvas._resize(); S.wcanvas.clear(); }
+      if (S.wcanvas) S.wcanvas._resize();
     });
   }
 }
