@@ -291,57 +291,47 @@ function renderWriteItem() {
 }
 
 function sizeWritingCanvas(type, guideText) {
-  const wrap  = document.querySelector('.canvas-wrap');
-  const maxW  = Math.min(window.innerWidth - 28, 560);
-  const len   = guideText.length;
+  const wrap = document.querySelector('.canvas-wrap');
+  const maxW = Math.min(window.innerWidth - 28, 560);
 
-  // Determine dimensions
+  // Canvas dimensions by content type
   let wPx, hPx;
   if (type === 'letter') {
-    // Square: big single character
-    const sq = Math.min(maxW, 300);
-    wPx = sq; hPx = sq;
+    const sq = Math.min(maxW, 300); wPx = sq; hPx = sq;
   } else if (type === 'digraph') {
-    wPx = Math.min(maxW, 320); hPx = 220;
+    wPx = maxW; hPx = 220;
   } else if (type === 'word') {
-    if (len <= 5)      { wPx = Math.min(maxW, 340); hPx = 230; }
-    else if (len <= 9) { wPx = maxW;                hPx = 210; }
-    else               { wPx = maxW;                hPx = 190; }
+    wPx = maxW; hPx = 210;
   } else {
-    // sentence — wide, shorter height
-    wPx = maxW; hPx = 170;
+    // sentence
+    wPx = maxW; hPx = 175;
   }
 
   wrap.style.width  = wPx + 'px';
   wrap.style.height = hPx + 'px';
 
-  // Derive font size that fits comfortably in wPx
-  // Uses a simple chars-to-size table scaled to actual canvas width
-  const scale = wPx / 300; // normalise against 300px reference
-  let base;
-  if      (len <= 1)  base = 210;
-  else if (len <= 2)  base = 155;
-  else if (len <= 4)  base = 108;
-  else if (len <= 6)  base = 80;
-  else if (len <= 9)  base = 60;
-  else if (len <= 14) base = 44;
-  else if (len <= 20) base = 34;
-  else if (len <= 28) base = 27;
-  else                base = 22;
+  // Measure actual text width to find font size that truly fits
+  const pad = 28;                         // horizontal breathing room
+  const maxTextH = hPx * 0.62;           // text shouldn't fill more than 62% of height
+  const maxTextW = wPx - pad;
 
-  const fs = Math.round(base * scale);
-  const overlay = document.getElementById('guide-overlay');
-  overlay.style.fontSize = fs + 'px';
-  // line-height fix so multi-word text sits nicely
-  overlay.style.lineHeight = (type === 'sentence') ? '1.15' : '1';
+  // Use an offscreen canvas to get accurate font metrics
+  var measurer = document.createElement('canvas').getContext('2d');
+  var fontSize = Math.min(Math.floor(maxTextH), 200);
+  while (fontSize > 14) {
+    measurer.font = '900 ' + fontSize + 'px \'Arial Black\', Arial, sans-serif';
+    if (measurer.measureText(guideText).width <= maxTextW) break;
+    fontSize -= 2;
+  }
 
-  // Tell canvas to re-measure itself after the DOM has updated
+  var overlay = document.getElementById('guide-overlay');
+  overlay.style.fontSize   = fontSize + 'px';
+  overlay.style.lineHeight = (type === 'sentence') ? '1.25' : '1';
+
+  // Re-sync canvas pixel dimensions after the wrap has resized
   if (S.wcanvas) {
-    requestAnimationFrame(() => {
-      if (S.wcanvas) {
-        S.wcanvas._resize();
-        S.wcanvas.clear();
-      }
+    requestAnimationFrame(function() {
+      if (S.wcanvas) { S.wcanvas._resize(); S.wcanvas.clear(); }
     });
   }
 }
