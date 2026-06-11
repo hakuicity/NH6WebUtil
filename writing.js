@@ -19,13 +19,24 @@ class WritingCanvas {
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => this.redraw());
     }
+    // Keep the bitmap in sync with the displayed size at all times.
+    // Without this, resizing the wrap after the canvas was created leaves
+    // the bitmap at the old size and the browser stretches it (distorted text).
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(() => this._resize());
+      this._ro.observe(this.canvas.parentElement);
+    }
   }
 
   _resize() {
-    const wrap = this.canvas.parentElement;
-    const rect = wrap.getBoundingClientRect();
-    this.canvas.width  = Math.round(rect.width  || 300);
-    this.canvas.height = Math.round(rect.height || 300);
+    // Measure the canvas element itself — it's inset:0 inside the wrap, so
+    // its rect is the true content box (the wrap's rect includes the border).
+    const rect = this.canvas.getBoundingClientRect();
+    const newW = Math.round(rect.width  || 300);
+    const newH = Math.round(rect.height || 300);
+    if (this.canvas.width === newW && this.canvas.height === newH) return;
+    this.canvas.width  = newW;
+    this.canvas.height = newH;
     this.redraw();
   }
 
@@ -157,6 +168,9 @@ class WritingCanvas {
     } else {
       // Single word / letter / digraph — fit width AND height,
       // accounting for ascenders and descenders via actual metrics.
+      // Height is capped to ~62% of the canvas so the word sits naturally
+      // within the ruling lines instead of filling the whole canvas.
+      const capH = Math.min(maxH, h * 0.62);
       let lo = 10, hi = 240;
       while (hi - lo > 1) {
         const mid = (lo + hi) / 2;
@@ -164,7 +178,7 @@ class WritingCanvas {
         const m       = ctx.measureText(this.guideText);
         const textH   = (m.actualBoundingBoxAscent || mid * 0.8) +
                         (m.actualBoundingBoxDescent || mid * 0.25);
-        (m.width <= maxW && textH <= maxH) ? (lo = mid) : (hi = mid);
+        (m.width <= maxW && textH <= capH) ? (lo = mid) : (hi = mid);
       }
       const fs = Math.floor(lo);
       ctx.font = this._guideFont(fs);
