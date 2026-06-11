@@ -295,27 +295,19 @@ function renderWriteItem() {
   // Pass guide text directly to canvas — it measures and draws itself
   var guideText = overlay.textContent; // still set above for tab switches
   sizeWritingCanvas(item.type);
-  requestAnimationFrame(function() {
-    if (S.wcanvas) S.wcanvas.setGuide(S.writeMode === 'trace' ? guideText : '');
-  });
+  if (S.wcanvas) S.wcanvas.setGuide(S.writeMode === 'trace' ? guideText : '');
 }
 
 function sizeWritingCanvas(type) {
-  var wrap = document.querySelector('.canvas-wrap');
   var maxW = Math.min(window.innerWidth - 28, 560);
   var wPx, hPx;
   if      (type === 'letter')   { var sq = Math.min(maxW, 300); wPx = sq;   hPx = sq; }
   else if (type === 'digraph')  { wPx = maxW; hPx = 220; }
   else if (type === 'word')     { wPx = maxW; hPx = 210; }
   else                          { wPx = maxW; hPx = 175; }  // sentence
-  wrap.style.width  = wPx + 'px';
-  wrap.style.height = hPx + 'px';
-  // Canvas resize + guide redraw happen after DOM update
-  if (S.wcanvas) {
-    requestAnimationFrame(function() {
-      if (S.wcanvas) S.wcanvas._resize();
-    });
-  }
+  // Synchronous: pins wrap + bitmap + CSS to the same pixels in one step.
+  // No rAF needed — bitmap and display size can never disagree.
+  if (S.wcanvas) S.wcanvas.resizeTo(wPx, hPx);
 }
 
 // ── Results ────────────────────────────────────────────────────────────────
