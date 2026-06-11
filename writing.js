@@ -1,5 +1,11 @@
 // writing.js — Canvas writing practice
 // Supports mouse and touch (Chromebook stylus/finger)
+//
+// Sizing model (deterministic, no observers, no rect-reading races):
+//   app.js calls resizeTo(w, h) with explicit pixel dimensions.
+//   resizeTo pins the wrap, the canvas bitmap, AND the canvas CSS size to
+//   those exact pixels in one synchronous step — bitmap and display can
+//   never disagree, so text can never stretch.
 'use strict';
 
 class WritingCanvas {
@@ -13,31 +19,31 @@ class WritingCanvas {
     this.lineWidth = document.documentElement.clientWidth < 600 ? 7 : 6;
     this.guideText = '';
     this._setupEvents();
-    this._resize();
-    // Redraw once the guide font finishes loading, otherwise the first
-    // guide renders in the fallback font with wrong metrics
+    // Redraw once the guide font (Andika) finishes loading, otherwise the
+    // first guide renders with fallback-font metrics
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => this.redraw());
     }
-    // Keep the bitmap in sync with the displayed size at all times.
-    // Without this, resizing the wrap after the canvas was created leaves
-    // the bitmap at the old size and the browser stretches it (distorted text).
-    if (typeof ResizeObserver !== 'undefined') {
-      this._ro = new ResizeObserver(() => this._resize());
-      this._ro.observe(this.canvas.parentElement);
-    }
   }
 
-  _resize() {
-    // Measure the canvas element itself — it's inset:0 inside the wrap, so
-    // its rect is the true content box (the wrap's rect includes the border).
-    const rect = this.canvas.getBoundingClientRect();
-    const newW = Math.round(rect.width  || 300);
-    const newH = Math.round(rect.height || 300);
-    if (this.canvas.width === newW && this.canvas.height === newH) return;
-    this.canvas.width  = newW;
-    this.canvas.height = newH;
+  // ── Deterministic sizing ───────────────────────────────────────────────────
+  // Pin wrap, bitmap, and CSS to the same explicit pixel size synchronously.
+  resizeTo(w, h) {
+    const wrap = this.canvas.parentElement;
+    wrap.style.width  = w + 'px';
+    wrap.style.height = h + 'px';
+    this.canvas.width        = w;
+    this.canvas.height       = h;
+    this.canvas.style.width  = w + 'px';
+    this.canvas.style.height = h + 'px';
     this.redraw();
+  }
+
+  // Legacy fallback — measure own displayed size (used only on window resize)
+  _resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    this.resizeTo(Math.round(rect.width), Math.round(rect.height));
   }
 
   _setupEvents() {
@@ -97,23 +103,29 @@ class WritingCanvas {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Draw guide text (always measured by same ctx — pixel-perfect sizing)
     this._drawGuide();
-
-    // Draw ruling lines on top of guide
     this._drawRulings();
 
-    // Draw completed strokes
     ctx.strokeStyle = this.color;
     ctx.lineWidth   = this.lineWidth;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
     for (const stroke of this.strokes) this._drawStroke(stroke);
 
-    // Draw current stroke
     if (this.current && this.current.length > 1) {
       this._drawStroke(this.current);
     }
+  }
+
+  _drawStroke(points) {
+    if (points.length < 2) return;
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.stroke();
   }
 
   // ── Guide text ───────────────────────────────────────────────────────────
@@ -122,9 +134,8 @@ class WritingCanvas {
     this.redraw();
   }
 
-  // Guide font: Andika has single-story 'a' and 'g' (schoolbook letterforms),
-  // designed for literacy education. Falls back to Comic Sans (also
-  // single-story) then generic sans.
+  // Guide font: Andika has single-story 'a' and 'g' (schoolbook letterforms).
+  // Falls back to Comic Sans (also single-story) then generic sans.
   _guideFont(fs) {
     return '700 ' + fs + 'px Andika, "Comic Sans MS", "Comic Sans", sans-serif';
   }
@@ -136,7 +147,6 @@ class WritingCanvas {
     const h    = this.canvas.height;
     const pad  = 20;
     const maxW = w - pad * 2;
-    const maxH = h - pad * 2;
 
     const isSentence = this.guideText.includes(' ');
     ctx.fillStyle    = 'rgba(37,99,235,0.13)';
@@ -144,8 +154,9 @@ class WritingCanvas {
     ctx.textBaseline = 'middle';   // middle baseline: descenders never clip
 
     if (isSentence) {
-      // Height-aware sizing: binary-search the largest font size whose
-      // WRAPPED lines fit BOTH maxW and maxH.
+      // Binary-search the largest font size whose WRAPPED lines fit both
+      // width and height.
+      const maxH = h - pad * 2;
       let lo = 9, hi = 80;
       let bestLines = null, bestFs = lo;
       while (hi - lo > 1) {
@@ -153,7 +164,6 @@ class WritingCanvas {
         const lines = this._wrapWords(ctx, this.guideText, maxW, mid);
         const lineH = mid * 1.35;
         const fitsH = lines.length * lineH <= maxH;
-        // Verify every wrapped line actually fits the width
         ctx.font = this._guideFont(mid);
         const fitsW = lines.every(l => ctx.measureText(l).width <= maxW);
         if (fitsH && fitsW) { lo = mid; bestFs = mid; bestLines = lines; }
@@ -166,18 +176,16 @@ class WritingCanvas {
       ctx.font = this._guideFont(bestFs);
       lines.forEach((line, i) => ctx.fillText(line, w / 2, startY + i * lineH));
     } else {
-      // Single word / letter / digraph — fit width AND height,
-      // accounting for ascenders and descenders via actual metrics.
-      // Height is capped to ~62% of the canvas so the word sits naturally
-      // within the ruling lines instead of filling the whole canvas.
-      const capH = Math.min(maxH, h * 0.62);
+      // Single word / letter / digraph — fit width, with height capped to
+      // ~62% of the canvas so the text sits naturally in the ruling area.
+      const capH = h * 0.62;
       let lo = 10, hi = 240;
       while (hi - lo > 1) {
         const mid = (lo + hi) / 2;
         ctx.font = this._guideFont(mid);
-        const m       = ctx.measureText(this.guideText);
-        const textH   = (m.actualBoundingBoxAscent || mid * 0.8) +
-                        (m.actualBoundingBoxDescent || mid * 0.25);
+        const m     = ctx.measureText(this.guideText);
+        const textH = (m.actualBoundingBoxAscent  || mid * 0.8) +
+                      (m.actualBoundingBoxDescent || mid * 0.25);
         (m.width <= maxW && textH <= capH) ? (lo = mid) : (hi = mid);
       }
       const fs = Math.floor(lo);
@@ -185,7 +193,6 @@ class WritingCanvas {
       ctx.fillText(this.guideText, w / 2, h / 2);
     }
 
-    // Reset
     ctx.textAlign    = 'left';
     ctx.textBaseline = 'alphabetic';
   }
@@ -236,22 +243,7 @@ class WritingCanvas {
     ctx.lineWidth = 1;
   }
 
-  _drawStroke(points) {
-    if (points.length < 2) return;
-    const ctx = this.ctx;
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length - 1; i++) {
-      const mx = (points[i].x + points[i+1].x) / 2;
-      const my = (points[i].y + points[i+1].y) / 2;
-      ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
-    }
-    const last = points[points.length - 1];
-    ctx.lineTo(last.x, last.y);
-    ctx.stroke();
-  }
-
-  // ── Public API ────────────────────────────────────────────────────────────
+  // ── Public API ─────────────────────────────────────────────────────────────
   clear() {
     this.strokes = [];
     this.current = null;
@@ -270,6 +262,15 @@ class WritingCanvas {
   }
 
   destroy() {
-    // No cleanup needed for event listeners bound to canvas element
+    // Reset state; the canvas element itself is reused by the next instance
+    this.strokes   = [];
+    this.current   = null;
+    this.isDrawing = false;
+    this.guideText = '';
   }
 }
+
+// Window resize → re-measure (the only place self-measurement is needed)
+window.addEventListener('resize', () => {
+  if (window.S && S.wcanvas) S.wcanvas._resize();
+});
