@@ -14,6 +14,11 @@ class WritingCanvas {
     this.guideText = '';
     this._setupEvents();
     this._resize();
+    // Redraw once the guide font finishes loading, otherwise the first
+    // guide renders in the fallback font with wrong metrics
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => this.redraw());
+    }
   }
 
   _resize() {
@@ -106,47 +111,64 @@ class WritingCanvas {
     this.redraw();
   }
 
+  // Guide font: Andika has single-story 'a' and 'g' (schoolbook letterforms),
+  // designed for literacy education. Falls back to Comic Sans (also
+  // single-story) then generic sans.
+  _guideFont(fs) {
+    return '700 ' + fs + 'px Andika, "Comic Sans MS", "Comic Sans", sans-serif';
+  }
+
   _drawGuide() {
     if (!this.guideText) return;
     const ctx  = this.ctx;
     const w    = this.canvas.width;
     const h    = this.canvas.height;
-    const pad  = 24;
+    const pad  = 20;
     const maxW = w - pad * 2;
-    const maxH = h * 0.68;   // guide shouldn't fill more than 68% of height
+    const maxH = h - pad * 2;
 
     const isSentence = this.guideText.includes(' ');
+    ctx.fillStyle    = 'rgba(37,99,235,0.13)';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';   // middle baseline: descenders never clip
 
     if (isSentence) {
-      // Word-wrap: find font size then wrap lines
-      let fs = Math.min(maxH * 0.45, 80);
-      ctx.font = '900 ' + fs + 'px Arial, sans-serif';
-      while (fs > 11 && ctx.measureText(this.guideText).width > maxW * 2.2) {
-        fs -= 1;
-        ctx.font = '900 ' + fs + 'px Arial, sans-serif';
+      // Height-aware sizing: binary-search the largest font size whose
+      // WRAPPED lines fit BOTH maxW and maxH.
+      let lo = 9, hi = 80;
+      let bestLines = null, bestFs = lo;
+      while (hi - lo > 1) {
+        const mid   = Math.floor((lo + hi) / 2);
+        const lines = this._wrapWords(ctx, this.guideText, maxW, mid);
+        const lineH = mid * 1.35;
+        const fitsH = lines.length * lineH <= maxH;
+        // Verify every wrapped line actually fits the width
+        ctx.font = this._guideFont(mid);
+        const fitsW = lines.every(l => ctx.measureText(l).width <= maxW);
+        if (fitsH && fitsW) { lo = mid; bestFs = mid; bestLines = lines; }
+        else                { hi = mid; }
       }
-      const lines = this._wrapWords(ctx, this.guideText, maxW, fs);
-      const lineH = fs * 1.3;
+      const lines  = bestLines || this._wrapWords(ctx, this.guideText, maxW, bestFs);
+      const lineH  = bestFs * 1.35;
       const totalH = lines.length * lineH;
-      const startY = (h - totalH) / 2 + fs;
-      ctx.fillStyle = 'rgba(37,99,235,0.10)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
+      const startY = (h - totalH) / 2 + lineH / 2;
+      ctx.font = this._guideFont(bestFs);
       lines.forEach((line, i) => ctx.fillText(line, w / 2, startY + i * lineH));
     } else {
-      // Single word / letter / digraph — binary-search for exact fit, no wrapping
-      let lo = 10, hi = Math.min(maxH, 220);
+      // Single word / letter / digraph — fit width AND height,
+      // accounting for ascenders and descenders via actual metrics.
+      let lo = 10, hi = 240;
       while (hi - lo > 1) {
         const mid = (lo + hi) / 2;
-        ctx.font = '900 ' + mid + 'px Arial, sans-serif';
-        (ctx.measureText(this.guideText).width <= maxW) ? (lo = mid) : (hi = mid);
+        ctx.font = this._guideFont(mid);
+        const m       = ctx.measureText(this.guideText);
+        const textH   = (m.actualBoundingBoxAscent || mid * 0.8) +
+                        (m.actualBoundingBoxDescent || mid * 0.25);
+        (m.width <= maxW && textH <= maxH) ? (lo = mid) : (hi = mid);
       }
       const fs = Math.floor(lo);
-      ctx.font          = '900 ' + fs + 'px Arial, sans-serif';
-      ctx.fillStyle     = 'rgba(37,99,235,0.10)';
-      ctx.textAlign     = 'center';
-      ctx.textBaseline  = 'alphabetic';
-      ctx.fillText(this.guideText, w / 2, h * 0.77);
+      ctx.font = this._guideFont(fs);
+      ctx.fillText(this.guideText, w / 2, h / 2);
     }
 
     // Reset
@@ -155,7 +177,7 @@ class WritingCanvas {
   }
 
   _wrapWords(ctx, text, maxW, fs) {
-    ctx.font = '900 ' + fs + 'px Arial, sans-serif';
+    ctx.font = this._guideFont(fs);
     const words = text.split(' ');
     const lines = [];
     let cur = '';
